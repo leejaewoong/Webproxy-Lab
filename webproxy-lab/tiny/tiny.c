@@ -3,11 +3,10 @@
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize);
+void serve_static(int fd, char *filename, char *method, int filesize);
 void get_filetype(char *filename, char *filetype);
 void serve_dynamic(int fd, char *filename, char *cgiargs);
-void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
-                 char *longmsg);
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 
 int main(int argc, char **argv)
 {
@@ -16,8 +15,8 @@ int main(int argc, char **argv)
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
 
-  // 명령어가 2개 이상의 단어로 구성 시 에러 반환
-  if (argc != 2)
+  // 명령어가 2개 이상의 단어로 구성되지 않았을 경우 에러 반환
+  if (argc < 2)
   {
     fprintf(stderr, "usage: %s <port>\n", argv[0]);
     exit(1);
@@ -50,15 +49,16 @@ void doit(int fd)
   Rio_readlineb(&rio, buf, MAXLINE);
   printf("Request headers:\n");
   printf("%s", buf);
-  sscanf(buf, "%s %s %s", method, uri, version);
-  if(strcasecmp(method, "GET"))
+  sscanf(buf, "%s %s %s", method, uri, version);  
+  if(strcasecmp(method, "GET") && strcasecmp(method, "HEAD"))
   {
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
     return;
   }
   read_requesthdrs(&rio);
 
-  is_static = parse_uri(uri, filename, cgiargs);
+  is_static = parse_uri(uri, filename, cgiargs);  
+
   if(stat(filename, &sbuf) < 0)
   {
     clienterror(fd, filename, "404", "Not found", "Tiny couldn't find this file");
@@ -72,7 +72,7 @@ void doit(int fd)
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
       return;
     } 
-    serve_static(fd, filename, sbuf.st_size);
+    serve_static(fd, filename, method, sbuf.st_size);
   }
 
   else
@@ -113,7 +113,7 @@ void read_requesthdrs(rio_t *rp)
   while(strcmp(buf, "\r\n"))
   {
     Rio_readlineb(rp, buf, MAXLINE);
-    printf("%s, buf");
+    printf("%s", buf);
   }
   return;
 }
@@ -127,33 +127,33 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
     strcpy(cgiargs, "");
     strcpy(filename, ".");
     strcat(filename, uri);
-    if(uri[strlen(uri)-1 == '/'])
+    if(uri[strlen(uri)-1] == '/')
+    {
       strcat(filename,"home.html");
       return 1;
+    }
   }
 
   else
   {
-    ptr = index(uri, '?');
+    ptr = index(uri, '?');    
     if(ptr)
     {
       strcpy(cgiargs, ptr+1);
-      *ptr = "\0";
+      *ptr = '\0';
     }
 
-    else
-    {
-      strcpy(cgiargs, ptr + 1);      
-    }
-    strcpy(filename, "");
+    else    
+      strcpy(cgiargs, "");          
+    strcpy(filename, ".");
     strcat(filename, uri);
     return 0;
   }
 }
 
-void serve_static(int fd, char *filename, int filesize)
+void serve_static(int fd, char *filename, char *method, int filesize)
 {
-  int srcfd;
+  int srcfd, adder;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
 
   get_filetype(filename, filetype);
@@ -163,14 +163,20 @@ void serve_static(int fd, char *filename, int filesize)
   sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
   sprintf(buf, "%sContent-type: %s\r\n\r\n", buf, filetype);
   Rio_writen(fd, buf, strlen(buf));
-  printf("Response hearders:\n");
-  printf("%s,  buf");
+  printf("Response headers:\n");
+  printf("%s", buf);
+
+  if(!(strcasecmp(method, "HEAD")))
+    return;
 
   srcfd = Open(filename, O_RDONLY, 0);
-  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+  srcp = malloc(filesize);  
+  Rio_readn(srcfd, srcp, filesize);
+  // srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);  
   Close(srcfd);
   Rio_writen(fd, srcp, filesize);
-  Munmap(srcp, filesize);
+  // Munmap(srcp, filesize);
+  free(srcp);
 }
 
 void get_filetype(char *filename, char *filetype)
@@ -183,6 +189,8 @@ void get_filetype(char *filename, char *filetype)
     strcpy(filetype, "image/png");
   else if(strstr(filename, ".jpg"))
     strcpy(filetype, "image/jpeg");
+  else if(strcasestr(filename, ".mp4"))
+    strcpy(filetype, "video/mp4");
   else
     strcpy(filetype, "text/plain");  
 }

@@ -1,7 +1,60 @@
 <html>
-<head><title>test</title></head>
-<body> 
-<img align="middle" src="godzilla.gif">
-Dave O'Hallaron
-</body>
+  <head>
+    <title>test</title>
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      .wrapper > * {
+        margin: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div>
+        <h1>Dave O'Hallaron</h1>
+      </div>
+      <p><img align="middle" src="godzilla.gif" /></p>
+      <form class="contents" action="/cgi-bin/adder" method="GET">
+        <p>Insert two numbers to add.<br />And click the button!</p>
+        <p><input name="1" margin="auto" /></p>
+        <p><input name="2" margin="auto" /></p>
+        <p><button type="submit" margin="auto">ADD</button></p>
+      </form>
+      <p>
+        <video
+          id="videoPreview"
+          width="640"
+          src="godzilla.mp4"
+          autoplay
+          loop
+          muted
+        >
+          <source src="godzilla.mp4" type="video/mp4" />
+        </video>
+      </p>
+    </div>
+  </body>
 </html>
